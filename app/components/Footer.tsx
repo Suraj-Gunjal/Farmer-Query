@@ -2,8 +2,10 @@
 
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import { useTranslation } from '../contexts/TranslationContext';
 
 export default function Footer() {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
 
   const handleSubscribe = (e: React.FormEvent) => {
@@ -14,23 +16,21 @@ export default function Footer() {
   };
 
   const footerLinks = {
-    'Quick Links': [
-      { name: 'Home', href: '#' },
-      { name: 'About Us', href: '#about' },
-      { name: 'Services', href: '#services' },
-      { name: 'Contact', href: '#contact' }
+    [t.footer.quickLinks]: [
+      { name: t.footer.home, href: '#' },
+      { name: t.footer.about, href: '#about' },
+      { name: t.footer.features, href: '#features' },
+      { name: t.footer.contact, href: '#contact' }
     ],
-    'Resources': [
-      { name: 'Crop Advisory', href: '#' },
-      { name: 'Weather Updates', href: '#' },
-      { name: 'Market Prices', href: '#' },
-      { name: 'Training Videos', href: '#' }
+    [t.footer.resources]: [
+      { name: t.footer.documentation, href: '#' },
+      { name: t.footer.faq, href: '#' },
+      { name: t.footer.tutorials, href: '#' }
     ],
-    'Support': [
-      { name: 'Help Center', href: '#' },
-      { name: 'FAQs', href: '#' },
-      { name: 'Contact Support', href: '#' },
-      { name: 'Feedback', href: '#' }
+    [t.footer.support]: [
+      { name: t.footer.helpCenter, href: '#' },
+      { name: t.footer.privacyPolicy, href: '#' },
+      { name: t.footer.termsOfService, href: '#' }
     ]
   };
 
@@ -94,11 +94,11 @@ export default function Footer() {
                 </div>
               </div>
               <p className="text-gray-300 text-sm leading-relaxed mb-6">
-                Empowering Kerala's farming community with AI-driven insights, real-time advisory, and sustainable agricultural solutions for a prosperous future.
+                {t.footer.description}
               </p>
               <div className="flex flex-wrap gap-2">
                 <div className="px-3 py-1 bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-full text-xs text-green-300">
-                  SIH 25076
+                  
                 </div>
                 <div className="px-3 py-1 bg-blue-500/20 backdrop-blur-sm border border-blue-400/30 rounded-full text-xs text-blue-300">
                   AI Powered
@@ -141,17 +141,17 @@ export default function Footer() {
         >
           <div className="max-w-2xl mx-auto text-center">
             <h4 className="text-2xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-green-300 to-blue-300">
-              Stay Updated with Latest Farming Insights
+              {t.footer.newsletterTitle}
             </h4>
             <p className="text-gray-300 text-sm mb-6">
-              Subscribe to receive weather alerts, crop advisories, and market updates directly to your inbox
+              {t.footer.newsletterDescription}
             </p>
             <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email address"
+                placeholder={t.footer.emailPlaceholder}
                 required
                 className="flex-1 px-6 py-3 bg-slate-800/50 border border-white/20 rounded-full text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all"
               />
@@ -161,14 +161,16 @@ export default function Footer() {
                 type="submit"
                 className="px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-full font-semibold text-sm shadow-lg shadow-green-500/50 hover:shadow-green-500/70 transition-all whitespace-nowrap"
               >
-                Subscribe
+                {t.footer.subscribe}
               </motion.button>
             </form>
           </div>
         </motion.div>
 
         {/* Social Links & Bottom Bar */}
-        
+        <div className="text-center text-gray-400 text-sm pt-8 border-t border-white/10">
+          <p>{t.footer.copyright}</p>
+        </div>
 
         {/* Decorative Elements */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-50" />

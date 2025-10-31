@@ -1,8 +1,10 @@
 "use client";
 import { useState, FormEvent } from "react";
 import { Loader2, Send, Sprout, ImagePlus } from "lucide-react";
+import { useTranslation } from "../contexts/TranslationContext";
 
 export default function QueryForm() {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
 
   if (!query.trim() && !image) {
-    setError("Please enter your query or upload an image");
+    setError(t.queryForm.errorMessage);
     return;
   }
 
@@ -54,7 +56,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     setResponse(data.answer || data.summary || "No response received.");
   } catch (err) {
     console.error("Error:", err);
-    setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    setError(err instanceof Error ? err.message : t.queryForm.errorOccurred);
   } finally {
     setLoading(false);
   }
@@ -79,15 +81,15 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
               <Sprout className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-300 via-emerald-400 to-teal-300">
-              Farmer Support
+              {t.queryForm.title}
             </h1>
           </div>
           <p className="text-xl text-gray-300">
-            Get AI-powered farming advice or diagnose plant diseases
+            {t.queryForm.subtitle}
           </p>
           <div className="mt-4 inline-block px-4 py-2 bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-full">
             <span className="text-green-300 text-sm font-medium">
-              🌾 Kerala AI Advisory System
+              🌾 {t.queryForm.badge}
             </span>
           </div>
         </div>
@@ -101,13 +103,13 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
                 htmlFor="query"
                 className="block text-lg font-semibold text-green-300 mb-3"
               >
-                Your Farming Query
+                {t.queryForm.label}
               </label>
               <textarea
                 id="query"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="E.g., What fertilizer should I use for tomato plants in Kerala?"
+                placeholder={t.queryForm.placeholder}
                 className="w-full min-h-[160px] px-6 py-4 bg-slate-700/50 border-2 border-white/10 rounded-2xl focus:border-green-500 focus:ring-2 focus:ring-green-500/50 outline-none transition-all resize-y text-white placeholder-gray-400 text-lg"
                 disabled={loading}
               />
@@ -118,7 +120,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
               <label className="flex flex-col items-center justify-center w-full cursor-pointer bg-slate-700/50 border-2 border-dashed border-green-400/40 rounded-2xl p-6 hover:border-green-500 hover:bg-slate-700/70 transition-all">
                 <ImagePlus className="w-10 h-10 text-green-400 mb-2" />
                 <span className="text-green-300 font-medium">
-                  Upload Plant Image (optional)
+                  {t.queryForm.uploadImage}
                 </span>
                 <input
                   type="file"
@@ -154,12 +156,12 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
               {loading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  Processing...
+                  {t.queryForm.processing}
                 </>
               ) : (
                 <>
                   <Send className="w-6 h-6" />
-                  Get AI Advice
+                  {t.queryForm.submit}
                 </>
               )}
             </button>
@@ -172,7 +174,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
             <div className="flex items-center gap-3 mb-6">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50"></div>
               <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-300 to-emerald-400">
-                AI Response
+                {t.queryForm.responseTitle}
               </h2>
             </div>
             <div className="prose prose-invert prose-green max-w-none">
@@ -182,7 +184,7 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
             </div>
             <div className="mt-6 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-gray-400">
               <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              Powered by Kerala Agriculture Knowledgebase
+              {t.queryForm.poweredBy}
             </div>
           </div>
         )}
@@ -192,10 +194,10 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
           <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-12 text-center">
             <Loader2 className="w-16 h-16 text-green-400 animate-spin mx-auto mb-6" />
             <p className="text-gray-300 text-lg font-medium mb-2">
-              Analyzing your input...
+              {t.queryForm.analyzing}
             </p>
             <p className="text-gray-500 text-sm">
-              Our AI is processing the image and query to prepare advice.
+              {t.queryForm.analyzingMessage}
             </p>
           </div>
         )}
