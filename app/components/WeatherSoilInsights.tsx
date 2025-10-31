@@ -38,16 +38,10 @@ export default function WeatherSoilInsights() {
       try {
         setLoading(true);
         setError(null);
-        console.log('🔍 Starting location request...');
-        console.log('🌐 Protocol:', window.location.protocol);
-        console.log('🌐 Hostname:', window.location.hostname);
-        console.log('� Secure Context:', window.isSecureContext);
-        console.log('�📱 User Agent:', navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Desktop');
 
         // Check for secure context (required on mobile)
         if (!window.isSecureContext) {
           console.error('❌ NOT A SECURE CONTEXT - Geolocation will not work!');
-          console.log('💡 Solution: Use HTTPS or localhost');
           throw new Error('Geolocation requires HTTPS. Please access the site via https:// or use localhost.');
         }
 
@@ -60,17 +54,15 @@ export default function WeatherSoilInsights() {
         if (navigator.permissions) {
           try {
             const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-            console.log('🔐 Geolocation permission state:', permissionStatus.state);
             
             if (permissionStatus.state === 'denied') {
               throw new Error('Location permission was previously denied. Please enable it in browser settings.');
             }
           } catch (permError) {
-            console.log('⚠️ Cannot check permission state:', permError);
           }
         }
 
-        console.log('📍 Requesting location permission...');        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error(t.weather.locationUnavailable + '. ' + t.weather.pleaseCheck));
           }, 15000); // Increased to 15 seconds for mobile
@@ -78,7 +70,6 @@ export default function WeatherSoilInsights() {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               clearTimeout(timeout);
-              console.log('✅ Location received:', pos.coords.latitude, pos.coords.longitude);
               resolve(pos);
             },
             (err) => {
@@ -117,14 +108,12 @@ export default function WeatherSoilInsights() {
         const { latitude, longitude } = position.coords;
 
         // Fetch weather data
-        console.log('🌤️ Fetching weather for:', latitude, longitude);
         const weatherRes = await fetch(`/api/weather?lat=${latitude}&lon=${longitude}`);
         if (!weatherRes.ok) {
           console.error('❌ Weather API error:', weatherRes.status, weatherRes.statusText);
           throw new Error('Failed to fetch weather');
         }
         const weatherData = await weatherRes.json();
-        console.log('✅ Weather data received:', weatherData);
         setWeather(weatherData);
 
         // Mock soil data (replace with ML API when ready)
@@ -135,7 +124,6 @@ export default function WeatherSoilInsights() {
           phosphorus: 'High',
           potassium: 'Medium'
         });
-        console.log('✅ Component data loaded successfully');
       } catch (err) {
         console.error('❌ Error in fetchData:', err);
         setError(err instanceof Error ? err.message : 'Failed to load data');
@@ -157,7 +145,6 @@ export default function WeatherSoilInsights() {
         });
       } finally {
         setLoading(false);
-        console.log('🏁 Loading complete');
       }
     };
 
@@ -219,7 +206,6 @@ export default function WeatherSoilInsights() {
     );
   }
 
-  console.log('🎨 Rendering weather component:', { weather, soil, error, loading });
 
   return (
     <section ref={sectionRef} className="py-24 px-6 relative bg-slate-900" id="weather-insights">

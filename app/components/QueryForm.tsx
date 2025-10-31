@@ -4,7 +4,7 @@ import { Loader2, Send, Sprout, ImagePlus } from "lucide-react";
 import { useTranslation } from "../contexts/TranslationContext";
 
 export default function QueryForm() {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function QueryForm() {
   };
 
   // Submit Query to FastAPI RAG backend
-// Submit Query to FastAPI RAG backend
+// Submit Query to AI (Groq for text, Gemini for image analysis)
 const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   e.preventDefault();
 
@@ -36,24 +36,61 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   setResponse("");
 
   try {
-    // ✅ Match the FastAPI schema
-    const payload = {
-      question: query,
-      top_k: 3,
-      min_score: 0.1,
-      summarize: true,
-    };
+    // If there's an image, use Gemini Vision API
+    if (image) {
+      // Convert image to base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64String = reader.result as string;
+          // Remove data URL prefix to get pure base64
+          const base64Data = base64String.split(',')[1];
+          resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(image);
+      });
 
-    const res = await fetch("http://127.0.0.1:8000/query", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+      const base64Image = await base64Promise;
 
-    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+      // Call Gemini Vision API for image analysis
+      const res = await fetch("/api/query-vision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: query.trim() || "Analyze this plant image and identify any diseases, pests, or issues. Provide diagnosis and treatment recommendations for Kerala farming conditions.",
+          image: base64Image,
+          mimeType: image.type,
+          language: language
+        }),
+      });
 
-    const data = await res.json();
-    setResponse(data.answer || data.summary || "No response received.");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data.response || "No response received.");
+    } else {
+      // Text-only query, use Groq API
+      const res = await fetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          query: query.trim(),
+          language: language
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setResponse(data.response || "No response received.");
+    }
   } catch (err) {
     console.error("Error:", err);
     setError(err instanceof Error ? err.message : t.queryForm.errorOccurred);
@@ -137,6 +174,20 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
                     alt="Preview"
                     className="max-h-48 rounded-xl border border-green-400/40 shadow-lg"
                   />
+                  <div className="mt-2 flex items-center gap-2 text-sm text-green-300">
+                    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    <span>Image will be analyzed for plant diseases & health</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImage(null);
+                      setPreview(null);
+                    }}
+                    className="mt-2 text-xs text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    Remove image
+                  </button>
                 </div>
               )}
             </div>
@@ -194,10 +245,10 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
           <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-12 text-center">
             <Loader2 className="w-16 h-16 text-green-400 animate-spin mx-auto mb-6" />
             <p className="text-gray-300 text-lg font-medium mb-2">
-              {t.queryForm.analyzing}
+              {image ? "Analyzing plant image..." : t.queryForm.analyzing}
             </p>
             <p className="text-gray-500 text-sm">
-              {t.queryForm.analyzingMessage}
+              {image ? "Our AI is examining the plant photo to detect diseases, pests, and health issues." : t.queryForm.analyzingMessage}
             </p>
           </div>
         )}

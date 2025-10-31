@@ -15,28 +15,42 @@ export async function POST(request) {
     }
 
     // Parse request body
-    const { query } = await request.json();
+    const { query, language } = await request.json();
 
     if (!query || query.trim() === "") {
       return Response.json({ error: "Query is required" }, { status: 400 });
     }
 
-    console.log("📝 Received query:", query);
+    // Determine response language instruction
+    const languageInstruction =
+      language === "ml"
+        ? "You MUST respond in Malayalam language. Use Malayalam script (മലയാളം) for your entire response."
+        : "If the query is in Malayalam, respond in Malayalam. Otherwise, respond in English.";
 
-    // Create prompt for farming advice
+    // Create prompt for farming advice with Kerala-specific context
     const messages = [
       {
         role: "system",
         content:
-          "You are an agricultural expert assistant helping farmers with their queries. Provide practical, accurate, and helpful advice.",
+          "You are an expert agricultural advisor specializing in Kerala, India farming practices. You have deep knowledge of:\n" +
+          "- Kerala's tropical climate, monsoon patterns, and seasonal variations\n" +
+          "- Major crops: rice (paddy), coconut, rubber, tea, coffee, spices (pepper, cardamom, ginger), vegetables, and fruits (banana, mango, jackfruit)\n" +
+          "- Organic farming methods and sustainable agriculture\n" +
+          "- Soil health management in laterite and alluvial soils common in Kerala\n" +
+          "- Pest and disease management using both traditional and modern methods\n" +
+          "- Water management and irrigation techniques\n" +
+          "- Government schemes and support for Kerala farmers\n\n" +
+          "Provide practical, accurate, and helpful advice in a friendly tone. " +
+          languageInstruction +
+          " " +
+          "Keep responses concise (3-5 sentences) unless detailed explanation is needed. " +
+          "Always prioritize sustainable and economical solutions suitable for Kerala's small-scale farmers.",
       },
       {
         role: "user",
         content: query,
       },
     ];
-
-    console.log("🤖 Calling Groq API...");
 
     // Call Groq API
     const response = await fetch(
@@ -66,18 +80,12 @@ export async function POST(request) {
     const data = await response.json();
     const aiResponse = data.choices[0].message.content;
 
-    console.log("✅ Response generated successfully");
-
     return Response.json({
       response: aiResponse,
       success: true,
     });
   } catch (error) {
-    console.error("❌ API Error:", error);
-    console.error("Error details:", {
-      message: error.message,
-      stack: error.stack,
-    });
+    console.error("API Error:", error);
 
     return Response.json(
       {
