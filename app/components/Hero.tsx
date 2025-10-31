@@ -4,7 +4,7 @@ import { Sprout, ArrowRight } from 'lucide-react';
 export default function HeroBanner() {
   const scrollToForm = () => {
     const formElement = document.getElementById('query-form');
-    if (formElement) {
+    if (formElement) { 
       formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };

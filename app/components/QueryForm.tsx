@@ -1,52 +1,74 @@
-import { useState, FormEvent } from 'react';
-import { Loader2, Send, Sprout } from 'lucide-react';
+"use client";
+import { useState, FormEvent } from "react";
+import { Loader2, Send, Sprout, ImagePlus } from "lucide-react";
 
 export default function QueryForm() {
-  const [query, setQuery] = useState('');
-  const [response, setResponse] = useState('');
+  const [query, setQuery] = useState("");
+  const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    
-    if (!query.trim()) {
-      setError('Please enter your query');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setResponse('');
-
-    try {
-      const res = await fetch('/api/query', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to get advice');
-      }
-
-      const data = await res.json();
-      setResponse(data.response || data.advice || 'No response received');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-    } finally {
-      setLoading(false);
+  // Handle image upload and preview
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImage(file);
+      setPreview(URL.createObjectURL(file));
     }
   };
 
+  // Submit Query to FastAPI RAG backend
+// Submit Query to FastAPI RAG backend
+const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+  e.preventDefault();
+
+  if (!query.trim() && !image) {
+    setError("Please enter your query or upload an image");
+    return;
+  }
+
+  setLoading(true);
+  setError("");
+  setResponse("");
+
+  try {
+    // ✅ Match the FastAPI schema
+    const payload = {
+      question: query,
+      top_k: 3,
+      min_score: 0.1,
+      summarize: true,
+    };
+
+    const res = await fetch("http://127.0.0.1:8000/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) throw new Error(`Backend error: ${res.status}`);
+
+    const data = await res.json();
+    setResponse(data.answer || data.summary || "No response received.");
+  } catch (err) {
+    console.error("Error:", err);
+    setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-green-900 to-slate-900 py-12 px-4 relative overflow-hidden">
-      {/* Animated Background Elements */}
+      {/* Animated Background */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-20 left-10 w-72 h-72 bg-green-500 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        <div
+          className="absolute bottom-20 right-10 w-96 h-96 bg-blue-500 rounded-full blur-3xl animate-pulse"
+          style={{ animationDelay: "1s" }}
+        />
       </div>
 
       <div className="max-w-4xl mx-auto relative z-10">
@@ -60,27 +82,61 @@ export default function QueryForm() {
               Farmer Support
             </h1>
           </div>
-          <p className="text-xl text-gray-300">Get expert AI-powered advice for your farming queries</p>
+          <p className="text-xl text-gray-300">
+            Get AI-powered farming advice or diagnose plant diseases
+          </p>
           <div className="mt-4 inline-block px-4 py-2 bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-full">
-            <span className="text-green-300 text-sm font-medium">24/7 AI Advisory System</span>
+            <span className="text-green-300 text-sm font-medium">
+              🌾 Kerala AI Advisory System
+            </span>
           </div>
         </div>
 
-        {/* Form Card */}
+        {/* Form */}
         <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8 md:p-10 mb-8">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Query Input */}
             <div>
-              <label htmlFor="query" className="block text-lg font-semibold text-green-300 mb-3">
+              <label
+                htmlFor="query"
+                className="block text-lg font-semibold text-green-300 mb-3"
+              >
                 Your Farming Query
               </label>
               <textarea
                 id="query"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="E.g., What's the best time to plant wheat in Kerala? How can I prevent pest damage to my rice crops?"
-                className="w-full min-h-[180px] px-6 py-4 bg-slate-700/50 border-2 border-white/10 rounded-2xl focus:border-green-500 focus:ring-2 focus:ring-green-500/50 outline-none transition-all resize-y text-white placeholder-gray-400 text-lg"
+                placeholder="E.g., What fertilizer should I use for tomato plants in Kerala?"
+                className="w-full min-h-[160px] px-6 py-4 bg-slate-700/50 border-2 border-white/10 rounded-2xl focus:border-green-500 focus:ring-2 focus:ring-green-500/50 outline-none transition-all resize-y text-white placeholder-gray-400 text-lg"
                 disabled={loading}
               />
+            </div>
+
+            {/* Image Upload */}
+            <div className="flex flex-col items-center justify-center">
+              <label className="flex flex-col items-center justify-center w-full cursor-pointer bg-slate-700/50 border-2 border-dashed border-green-400/40 rounded-2xl p-6 hover:border-green-500 hover:bg-slate-700/70 transition-all">
+                <ImagePlus className="w-10 h-10 text-green-400 mb-2" />
+                <span className="text-green-300 font-medium">
+                  Upload Plant Image (optional)
+                </span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageChange}
+                  disabled={loading}
+                />
+              </label>
+              {preview && (
+                <div className="mt-4">
+                  <img
+                    src={preview}
+                    alt="Preview"
+                    className="max-h-48 rounded-xl border border-green-400/40 shadow-lg"
+                  />
+                </div>
+              )}
             </div>
 
             {error && (
@@ -89,6 +145,7 @@ export default function QueryForm() {
               </div>
             )}
 
+            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
@@ -97,7 +154,7 @@ export default function QueryForm() {
               {loading ? (
                 <>
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  Analyzing Your Query...
+                  Processing...
                 </>
               ) : (
                 <>
@@ -109,34 +166,37 @@ export default function QueryForm() {
           </form>
         </div>
 
-        {/* Response Card */}
+        {/* Response */}
         {response && (
           <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-8 md:p-10 animate-fadeIn">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-lg shadow-green-500/50"></div>
               <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-300 to-emerald-400">
-                AI Advisory Response
+                AI Response
               </h2>
             </div>
             <div className="prose prose-invert prose-green max-w-none">
-              <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">{response}</p>
+              <p className="text-gray-200 text-lg leading-relaxed whitespace-pre-wrap">
+                {response}
+              </p>
             </div>
             <div className="mt-6 pt-6 border-t border-white/10 flex items-center gap-2 text-sm text-gray-400">
               <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              Powered by Kerala AI Farmer Advisory System
+              Powered by Kerala Agriculture Knowledgebase
             </div>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading UI */}
         {loading && !response && (
           <div className="bg-slate-800/50 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl p-12 text-center">
-            <div className="relative inline-block">
-              <Loader2 className="w-16 h-16 text-green-400 animate-spin mx-auto mb-6" />
-              <div className="absolute inset-0 w-16 h-16 bg-green-500/20 rounded-full blur-xl animate-pulse"></div>
-            </div>
-            <p className="text-gray-300 text-lg font-medium mb-2">Analyzing your farming query...</p>
-            <p className="text-gray-500 text-sm">Our AI is processing your request and preparing personalized advice</p>
+            <Loader2 className="w-16 h-16 text-green-400 animate-spin mx-auto mb-6" />
+            <p className="text-gray-300 text-lg font-medium mb-2">
+              Analyzing your input...
+            </p>
+            <p className="text-gray-500 text-sm">
+              Our AI is processing the image and query to prepare advice.
+            </p>
           </div>
         )}
       </div>
