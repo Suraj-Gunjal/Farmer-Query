@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Farmer AI",
+  title: "Krishi Mitra",
   description: "AI-powered assistance for farmers in Kerala",
   icons: {
     icon: '/logo.png',
