@@ -49,71 +49,90 @@ export default function WeatherSoilInsights() {
         setLoading(true);
         console.log('🔄 Starting location fetch...');
 
-        // Check if geolocation is available
-        if (!navigator.geolocation) {
-          console.warn('❌ Geolocation not supported by browser');
-          throw new Error('Geolocation not supported');
-        }
+        let latitude: number;
+        let longitude: number;
 
-        // Check if we're in a secure context (HTTPS or localhost)
-        if (!window.isSecureContext) {
-          console.warn('⚠️ Not in secure context - geolocation may not work');
-        }
+        // Try GPS first
+        try {
+          // Check if geolocation is available
+          if (!navigator.geolocation) {
+            console.warn('❌ Geolocation not supported by browser');
+            throw new Error('Geolocation not supported');
+          }
 
-        console.log('📍 Requesting user location...');
+          // Check if we're in a secure context (HTTPS or localhost)
+          if (!window.isSecureContext) {
+            console.warn('⚠️ Not in secure context - geolocation may not work');
+          }
 
-        // Try to get user's location
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          const timeout = setTimeout(() => {
-            console.warn('⏱️ Location request timed out after 10 seconds');
-            reject(new Error('Location timeout'));
-          }, 10000); // 10 seconds timeout
+          console.log('📍 Requesting GPS location...');
 
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              clearTimeout(timeout);
-              console.log('✅ Location permission granted');
-              resolve(pos);
-            },
-            (err) => {
-              clearTimeout(timeout);
-              
-              // Log full error object for debugging
-              console.warn('❌ Geolocation error details:', {
-                fullError: err,
-                code: err?.code,
-                message: err?.message,
-                codeDescription: 
-                  err?.code === 1 ? 'PERMISSION_DENIED' :
-                  err?.code === 2 ? 'POSITION_UNAVAILABLE' :
-                  err?.code === 3 ? 'TIMEOUT' : 'UNKNOWN',
-                errorType: typeof err,
-                errorKeys: err ? Object.keys(err) : []
-              });
-              
-              // Try to get more details
-              if (err?.code === 1) {
-                console.warn('🚫 User denied location permission');
-              } else if (err?.code === 2) {
-                console.warn('📍 Location not available - check if location services are enabled');
-              } else if (err?.code === 3) {
-                console.warn('⏱️ Location request timed out');
-              } else {
-                console.warn('❓ Unknown geolocation error - might be browser restriction');
+          // Try to get user's location via GPS
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              console.warn('⏱️ GPS request timed out after 8 seconds');
+              reject(new Error('Location timeout'));
+            }, 8000); // 8 seconds timeout
+
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                clearTimeout(timeout);
+                console.log('✅ GPS location permission granted');
+                resolve(pos);
+              },
+              (err) => {
+                clearTimeout(timeout);
+                
+                // Log full error object for debugging
+                console.warn('❌ GPS error details:', {
+                  fullError: err,
+                  code: err?.code,
+                  message: err?.message,
+                  codeDescription: 
+                    err?.code === 1 ? 'PERMISSION_DENIED' :
+                    err?.code === 2 ? 'POSITION_UNAVAILABLE' :
+                    err?.code === 3 ? 'TIMEOUT' : 'UNKNOWN',
+                });
+                
+                reject(err);
+              },
+              { 
+                enableHighAccuracy: false,
+                timeout: 8000,
+                maximumAge: 300000
               }
-              
-              reject(err);
-            },
-            { 
-              enableHighAccuracy: false, // Changed to false for faster response
-              timeout: 10000,
-              maximumAge: 300000 // Accept cached position up to 5 minutes old
-            }
-          );
-        });
+            );
+          });
 
-        const { latitude, longitude } = position.coords;
-        console.log('✅ Location obtained:', { latitude, longitude });
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+          console.log('✅ GPS location obtained:', { latitude, longitude });
+
+        } catch (gpsError) {
+          // GPS failed, try IP-based geolocation as fallback
+          console.log('🌐 GPS unavailable, trying IP-based geolocation...');
+          
+          try {
+            const ipLocationRes = await fetch('https://ipapi.co/json/');
+            if (ipLocationRes.ok) {
+              const ipData = await ipLocationRes.json();
+              latitude = ipData.latitude;
+              longitude = ipData.longitude;
+              console.log('✅ IP-based location obtained:', { 
+                latitude, 
+                longitude,
+                city: ipData.city,
+                region: ipData.region,
+                country: ipData.country_name
+              });
+            } else {
+              throw new Error('IP geolocation failed');
+            }
+          } catch (ipError) {
+            console.warn('❌ IP-based geolocation also failed:', ipError);
+            throw new Error('All location methods failed');
+          }
+        }
 
         // Fetch weather data
         console.log('🌤️ Fetching weather data for location...');
