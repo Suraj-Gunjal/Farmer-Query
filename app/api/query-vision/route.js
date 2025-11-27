@@ -2,6 +2,8 @@
 
 export async function POST(request) {
   try {
+    console.log("🔍 Vision API called");
+
     // Check if API key exists
     if (!process.env.GEMINI_API_KEY) {
       console.error("❌ GEMINI_API_KEY is not set in environment variables");
@@ -19,6 +21,14 @@ export async function POST(request) {
     const body = await request.json();
 
     const { query, image, mimeType, language } = body;
+
+    console.log("📋 Request details:", {
+      hasQuery: !!query,
+      hasImage: !!image,
+      imageLength: image?.length,
+      mimeType,
+      language,
+    });
 
     if (!image) {
       console.error("❌ No image in request");
@@ -58,10 +68,11 @@ export async function POST(request) {
 
     // Try multiple model options for compatibility
     const modelOptions = [
-      "gemini-2.0-flash-exp", // Latest experimental with vision
-      "gemini-1.5-pro-latest", // Pro model with vision
-      "gemini-1.5-flash-latest", // Flash model with vision
-      "gemini-pro-vision", // Older vision model
+      "gemini-2.5-flash", // Latest stable flash model
+      "gemini-2.0-flash", // 2.0 Flash stable
+      "gemini-flash-latest", // Generic latest
+      "gemini-2.0-flash-lite", // Lighter version
+      "gemini-2.5-flash-lite", // Latest lite version
     ];
 
     let response;
@@ -71,6 +82,7 @@ export async function POST(request) {
     // Try each model until one works
     for (const modelName of modelOptions) {
       try {
+        console.log(`🔄 Trying model: ${modelName}`);
         response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${process.env.GEMINI_API_KEY}`,
           {
@@ -124,6 +136,21 @@ export async function POST(request) {
 
         if (!response.ok) {
           const errorData = await response.json();
+          console.error(
+            `❌ ${modelName} failed:`,
+            errorData.error?.message || errorData
+          );
+
+          // Check for quota exceeded error
+          if (
+            errorData.error?.message?.includes("quota") ||
+            errorData.error?.message?.includes("Quota exceeded")
+          ) {
+            throw new Error(
+              "Gemini API quota exceeded. Please check your billing details or wait for quota reset. Visit https://ai.google.dev/gemini-api/docs/rate-limits for more info."
+            );
+          }
+
           lastError = new Error(
             `${modelName}: ${errorData.error?.message || "Unknown error"}`
           );
@@ -131,9 +158,11 @@ export async function POST(request) {
         }
 
         // Success! Break out of loop
+        console.log(`✅ Success with model: ${modelName}`);
         usedModel = modelName;
         break;
       } catch (error) {
+        console.error(`❌ ${modelName} threw error:`, error.message);
         lastError = error;
         continue; // Try next model
       }
@@ -141,6 +170,7 @@ export async function POST(request) {
 
     // If all models failed, throw the last error
     if (!response || !response.ok) {
+      console.error("❌ All models failed. Last error:", lastError);
       throw lastError || new Error("All Gemini models failed to respond");
     }
 

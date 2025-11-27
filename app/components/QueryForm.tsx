@@ -38,6 +38,8 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
   try {
     // If there's an image, use Gemini Vision API
     if (image) {
+      console.log('📸 Processing image:', image.name, image.type, image.size, 'bytes');
+      
       // Convert image to base64
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
@@ -52,8 +54,10 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
       });
 
       const base64Image = await base64Promise;
+      console.log('✅ Image converted to base64, length:', base64Image.length);
 
       // Call Gemini Vision API for image analysis
+      console.log('🚀 Sending request to /api/query-vision...');
       const res = await fetch("/api/query-vision", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -66,11 +70,21 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
       });
 
       if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || `Server error: ${res.status}`);
+        const errorData = await res.json().catch(() => ({ error: `Server error: ${res.status}` }));
+        const errorMsg = errorData.error || errorData.details || `Server error: ${res.status}`;
+        const hint = errorData.hint ? `\n${errorData.hint}` : '';
+        throw new Error(errorMsg + hint);
       }
 
       const data = await res.json();
+      
+      if (!data.response && data.error) {
+        const errorMsg = data.error || "Failed to analyze image";
+        const hint = data.hint ? `\n${data.hint}` : '';
+        throw new Error(errorMsg + hint);
+      }
+      
+      console.log('✅ Image analysis successful, model:', data.model);
       setResponse(data.response || "No response received.");
     } else {
       // Text-only query, use Groq API
@@ -92,8 +106,10 @@ const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
       setResponse(data.response || "No response received.");
     }
   } catch (err) {
-    console.error("Error:", err);
-    setError(err instanceof Error ? err.message : t.queryForm.errorOccurred);
+    console.error("❌ Error in handleSubmit:", err);
+    const errorMessage = err instanceof Error ? err.message : t.queryForm.errorOccurred;
+    console.error("Error message:", errorMessage);
+    setError(errorMessage);
   } finally {
     setLoading(false);
   }

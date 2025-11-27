@@ -8,11 +8,23 @@ import { useTranslation } from '../contexts/TranslationContext';
 
 interface WeatherData {
   temperature: number;
+  feelsLike?: number;
   humidity: number;
   windSpeed: number;
+  windDirection?: number;
+  pressure?: number;
+  visibility?: number;
+  cloudiness?: number;
   rainChance: number;
   description: string;
+  weatherMain?: string;
+  weatherIcon?: string;
   location: string;
+  country?: string;
+  sunrise?: number | null;
+  sunset?: number | null;
+  timezone?: number;
+  currentTime?: number;
 }
 
 interface SoilData {
@@ -31,92 +43,91 @@ export default function WeatherSoilInsights() {
   const [weather, setWeather] = useState<WeatherData | null>(null);
   const [soil, setSoil] = useState<SoilData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const fetchData = async () => {
       try {
         setLoading(true);
-        setError(null);
+        console.log('🔄 Starting location fetch...');
 
-        // Check for secure context (required on mobile)
-        if (!window.isSecureContext) {
-          console.error('❌ NOT A SECURE CONTEXT - Geolocation will not work!');
-          throw new Error('Geolocation requires HTTPS. Please access the site via https:// or use localhost.');
-        }
-
-        // Get user's location with timeout
+        // Check if geolocation is available
         if (!navigator.geolocation) {
-          throw new Error('Geolocation is not supported by your browser');
+          console.warn('❌ Geolocation not supported by browser');
+          throw new Error('Geolocation not supported');
         }
 
-        // Check permissions API if available
-        if (navigator.permissions) {
-          try {
-            const permissionStatus = await navigator.permissions.query({ name: 'geolocation' });
-            
-            if (permissionStatus.state === 'denied') {
-              throw new Error('Location permission was previously denied. Please enable it in browser settings.');
-            }
-          } catch (permError) {
-          }
+        // Check if we're in a secure context (HTTPS or localhost)
+        if (!window.isSecureContext) {
+          console.warn('⚠️ Not in secure context - geolocation may not work');
         }
 
+        console.log('📍 Requesting user location...');
+
+        // Try to get user's location
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           const timeout = setTimeout(() => {
-            reject(new Error(t.weather.locationUnavailable + '. ' + t.weather.pleaseCheck));
-          }, 15000); // Increased to 15 seconds for mobile
+            console.warn('⏱️ Location request timed out after 10 seconds');
+            reject(new Error('Location timeout'));
+          }, 10000); // 10 seconds timeout
 
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               clearTimeout(timeout);
+              console.log('✅ Location permission granted');
               resolve(pos);
             },
             (err) => {
               clearTimeout(timeout);
-              console.error('❌ Location error:', err);
-              console.error('❌ Error code:', err?.code);
-              console.error('❌ Error message:', err?.message);
-              console.error('❌ Error PERMISSION_DENIED:', err?.PERMISSION_DENIED);
               
-              // Handle empty error object or missing properties
-              const errorCode = err?.code ?? -1;
-              const errorMessage = err?.message || 'Unknown error';
+              // Log full error object for debugging
+              console.warn('❌ Geolocation error details:', {
+                fullError: err,
+                code: err?.code,
+                message: err?.message,
+                codeDescription: 
+                  err?.code === 1 ? 'PERMISSION_DENIED' :
+                  err?.code === 2 ? 'POSITION_UNAVAILABLE' :
+                  err?.code === 3 ? 'TIMEOUT' : 'UNKNOWN',
+                errorType: typeof err,
+                errorKeys: err ? Object.keys(err) : []
+              });
               
-              let userMessage;
-              if (errorCode === 1 || errorCode === err?.PERMISSION_DENIED) {
-                userMessage = 'Location permission denied. Please enable location in your browser settings.';
-              } else if (errorCode === 2 || errorCode === err?.POSITION_UNAVAILABLE) {
-                userMessage = 'Location unavailable. Please check if location services are enabled on your device.';
-              } else if (errorCode === 3 || errorCode === err?.TIMEOUT) {
-                userMessage = 'Location request timed out. Please try again.';
+              // Try to get more details
+              if (err?.code === 1) {
+                console.warn('🚫 User denied location permission');
+              } else if (err?.code === 2) {
+                console.warn('📍 Location not available - check if location services are enabled');
+              } else if (err?.code === 3) {
+                console.warn('⏱️ Location request timed out');
               } else {
-                // Fallback for empty error objects
-                userMessage = `Unable to access location. Error: ${errorMessage}`;
+                console.warn('❓ Unknown geolocation error - might be browser restriction');
               }
               
-              reject(new Error(userMessage));
+              reject(err);
             },
             { 
-              enableHighAccuracy: true, // Changed to true for mobile GPS
-              timeout: 15000, // Increased timeout for mobile
-              maximumAge: 0 // Don't use cached position, force fresh request
+              enableHighAccuracy: false, // Changed to false for faster response
+              timeout: 10000,
+              maximumAge: 300000 // Accept cached position up to 5 minutes old
             }
           );
         });
 
         const { latitude, longitude } = position.coords;
+        console.log('✅ Location obtained:', { latitude, longitude });
 
         // Fetch weather data
+        console.log('🌤️ Fetching weather data for location...');
         const weatherRes = await fetch(`/api/weather?lat=${latitude}&lon=${longitude}`);
         if (!weatherRes.ok) {
-          console.error('❌ Weather API error:', weatherRes.status, weatherRes.statusText);
+          const errorText = await weatherRes.text();
+          console.error('❌ Weather API failed:', weatherRes.status, errorText);
           throw new Error('Failed to fetch weather');
         }
         const weatherData = await weatherRes.json();
         setWeather(weatherData);
+        console.log('✅ Weather data loaded for:', weatherData.location, weatherData);
 
-        // Mock soil data (replace with ML API when ready)
+        // Mock soil data
         setSoil({
           ph: 6.5,
           moisture: 65,
@@ -125,16 +136,32 @@ export default function WeatherSoilInsights() {
           potassium: 'Medium'
         });
       } catch (err) {
-        console.error('❌ Error in fetchData:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load data');
-        // Fallback data
+        // Silently handle errors and use fallback data
+        const errorMsg = err instanceof Error ? err.message : 
+                        (err as any)?.code === 1 ? 'Permission denied' :
+                        (err as any)?.code === 2 ? 'Position unavailable' :
+                        (err as any)?.code === 3 ? 'Timeout' : 'Unknown';
+        
+        console.log('ℹ️ Using default location data. Reason:', errorMsg);
+        console.log('📍 Fallback: Showing Kerala weather data');
+        console.log('💡 Tip: Allow location permission in browser to see your local weather');
+        
+        // Use fallback data without showing error
         setWeather({
           temperature: 28,
+          feelsLike: 30,
           humidity: 75,
           windSpeed: 12,
+          windDirection: 180,
+          pressure: 1013,
+          visibility: 10,
+          cloudiness: 50,
           rainChance: 40,
           description: 'Partly cloudy',
-          location: 'Kerala'
+          weatherMain: 'Clouds',
+          weatherIcon: '03d',
+          location: 'Kerala',
+          country: 'IN'
         });
         setSoil({
           ph: 6.5,
@@ -153,16 +180,14 @@ export default function WeatherSoilInsights() {
     
     // Failsafe: Force loading to false after 15 seconds
     const failsafeTimer = setTimeout(() => {
-      console.warn('⚠️ Failsafe activated - forcing loading to false');
-      setLoading(false);
+      if (loading) {
+        console.warn('⚠️ Failsafe activated - forcing loading to false');
+        setLoading(false);
+      }
     }, 15000);
     
     return () => clearTimeout(failsafeTimer);
-  }, [retryCount]);
-
-  const handleRetryLocation = () => {
-    setRetryCount(prev => prev + 1);
-  };
+  }, []);
 
   const getRecommendations = () => {
     if (!weather || !soil) return [];
@@ -222,10 +247,28 @@ export default function WeatherSoilInsights() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-center text-gray-300 mb-16 text-lg"
+          className="text-center text-gray-300 mb-4 text-lg"
         >
           {weather?.location ? `${t.weather.location}: ${weather.location}` : t.weather.loading}
         </motion.p>
+
+        {/* Refresh Location Button */}
+        <div className="text-center mb-12">
+          <button
+            onClick={() => {
+              console.log('🔄 Manual location refresh requested');
+              fetchData();
+            }}
+            disabled={loading}
+            className="px-5 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 text-blue-300 text-sm font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {loading ? 'Updating...' : 'Use My Location'}
+          </button>
+        </div>
 
         <div className="grid lg:grid-cols-2 gap-8 mb-8">
           {/* Weather Card */}
@@ -248,6 +291,9 @@ export default function WeatherSoilInsights() {
                   <div>
                     <p className="text-gray-400 text-sm">{t.weather.temperature}</p>
                     <p className="text-2xl font-bold text-white">{weather?.temperature}°C</p>
+                    {weather?.feelsLike && (
+                      <p className="text-xs text-gray-500 mt-1">Feels like {weather.feelsLike}°C</p>
+                    )}
                   </div>
                 </div>
 
@@ -274,10 +320,42 @@ export default function WeatherSoilInsights() {
                     <p className="text-2xl font-bold text-white">{weather?.windSpeed} km/h</p>
                   </div>
                 </div>
+                
+                {weather?.pressure && (
+                  <div className="flex items-start col-span-2">
+                    <Cloud className="w-6 h-6 text-purple-400 mr-3 mt-1" />
+                    <div className="flex gap-8">
+                      <div>
+                        <p className="text-gray-400 text-sm">Pressure</p>
+                        <p className="text-xl font-bold text-white">{weather.pressure} hPa</p>
+                      </div>
+                      {weather?.visibility && (
+                        <div>
+                          <p className="text-gray-400 text-sm">Visibility</p>
+                          <p className="text-xl font-bold text-white">{weather.visibility} km</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 pt-6 border-t border-white/10">
-                <p className="text-gray-300 capitalize">{weather?.description}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-300 capitalize flex items-center gap-2">
+                    {weather?.weatherIcon && (
+                      <img 
+                        src={`https://openweathermap.org/img/wn/${weather.weatherIcon}@2x.png`} 
+                        alt={weather.description}
+                        className="w-10 h-10"
+                      />
+                    )}
+                    {weather?.description}
+                  </p>
+                  {weather?.cloudiness !== undefined && (
+                    <p className="text-gray-500 text-sm">Cloud cover: {weather.cloudiness}%</p>
+                  )}
+                </div>
               </div>
             </div>
           </motion.div>
@@ -361,80 +439,6 @@ export default function WeatherSoilInsights() {
             </ul>
           </div>
         </motion.div>
-
-        {error && (
-          <div className="mt-6 bg-amber-500/10 border-2 border-amber-400/50 rounded-xl p-5 backdrop-blur-sm">
-            <div className="text-center">
-              <p className="text-amber-200 text-base mb-2">
-                <span className="font-bold">⚠️ {error}</span>
-              </p>
-              <div className="text-amber-300/90 text-sm mb-4 text-left max-w-md mx-auto">
-                {error.includes('unavailable') ? (
-                  <div className="space-y-2">
-                    <p className="font-semibold">📍 {t.weather.locationUnavailable}</p>
-                    <div className="bg-slate-800/50 p-3 rounded-lg">
-                      <p className="font-semibold text-yellow-300">{t.weather.pleaseCheck}</p>
-                      <ol className="list-decimal ml-4 mt-1 space-y-1">
-                        <li><strong>{t.weather.locationServicesOn}</strong>
-                          <ul className="list-disc ml-4 text-xs mt-1">
-                            <li>{t.weather.android}</li>
-                            <li>{t.weather.ios}</li>
-                          </ul>
-                        </li>
-                        <li><strong>{t.weather.browserPermission}</strong></li>
-                        <li><strong>{t.weather.notAirplaneMode}</strong></li>
-                        <li><strong>{t.weather.betterSignal}</strong></li>
-                      </ol>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-lg mt-2">
-                      <p className="font-semibold text-green-300">{t.weather.chromeMobile}:</p>
-                      <ol className="list-decimal ml-4 mt-1 space-y-1 text-xs">
-                        <li>{t.weather.chromeStep1}</li>
-                        <li>{t.weather.chromeStep2}</li>
-                        <li>{t.weather.chromeStep3}</li>
-                      </ol>
-                    </div>
-                  </div>
-                ) : error.includes('permission') || error.includes('denied') ? (
-                  <div className="space-y-2">
-                    <p className="font-semibold">📱 {t.weather.locationUnavailable}</p>
-                    <div className="bg-slate-800/50 p-3 rounded-lg">
-                      <p className="font-semibold text-green-300">{t.weather.chromeMobile}:</p>
-                      <ol className="list-decimal ml-4 mt-1 space-y-1">
-                        <li>{t.weather.chromeStep1}</li>
-                        <li>{t.weather.chromeStep2}</li>
-                        <li>{t.weather.chromeStep3}</li>
-                      </ol>
-                    </div>
-                    <div className="bg-slate-800/50 p-3 rounded-lg">
-                      <p className="font-semibold text-blue-300">Safari iOS:</p>
-                      <ol className="list-decimal ml-4 mt-1 space-y-1">
-                        <li>Open <strong>Settings</strong> app</li>
-                        <li>Scroll to <strong>Safari</strong></li>
-                        <li>Tap <strong>Location</strong></li>
-                        <li>Select <strong>"Ask"</strong> or <strong>"Allow"</strong></li>
-                        <li>Return and refresh this page</li>
-                      </ol>
-                    </div>
-                  </div>
-                ) : (
-                  <p>{t.weather.locationUnavailable}. {t.weather.currentlyShowing}</p>
-                )}
-              </div>
-              <p className="text-amber-400/80 text-xs mb-4">📍 {t.weather.currentlyShowing}</p>
-              <button
-                onClick={handleRetryLocation}
-                disabled={loading}
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-base font-bold rounded-full transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 mx-auto transform hover:scale-105"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {loading ? t.weather.requesting : t.weather.retryButton}
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );

@@ -19,11 +19,23 @@ export async function GET(request) {
       console.warn("OPENWEATHER_API_KEY not configured, using mock data");
       return NextResponse.json({
         temperature: 28,
+        feelsLike: 30,
         humidity: 75,
         windSpeed: 12,
+        windDirection: 180,
+        pressure: 1013,
+        visibility: 10,
+        cloudiness: 50,
         rainChance: 40,
         description: "Partly cloudy",
+        weatherMain: "Clouds",
+        weatherIcon: "03d",
         location: "Kerala",
+        country: "IN",
+        sunrise: null,
+        sunset: null,
+        timezone: 19800,
+        currentTime: Math.floor(Date.now() / 1000),
       });
     }
 
@@ -58,25 +70,55 @@ export async function GET(request) {
 
     const result = {
       temperature: Math.round(weatherData.main.temp),
+      feelsLike: Math.round(weatherData.main.feels_like),
       humidity: weatherData.main.humidity,
       windSpeed: Math.round(weatherData.wind.speed * 3.6), // Convert m/s to km/h
+      windDirection: weatherData.wind.deg,
+      pressure: weatherData.main.pressure,
+      visibility: Math.round((weatherData.visibility || 10000) / 1000), // Convert to km
+      cloudiness: weatherData.clouds?.all || 0,
       rainChance: rainChance,
       description: weatherData.weather[0].description,
+      weatherMain: weatherData.weather[0].main,
+      weatherIcon: weatherData.weather[0].icon,
       location: weatherData.name || "Your Location",
+      country: weatherData.sys?.country || "",
+      sunrise: weatherData.sys?.sunrise || null,
+      sunset: weatherData.sys?.sunset || null,
+      timezone: weatherData.timezone || 0,
+      currentTime: Math.floor(Date.now() / 1000),
     };
 
+    console.log(
+      "✅ Weather data fetched successfully:",
+      result.location,
+      result.temperature + "°C"
+    );
     return NextResponse.json(result);
   } catch (error) {
     console.error("Weather API error:", error);
 
     // Return fallback data instead of error
+    console.warn("⚠️ Using fallback weather data due to error");
     return NextResponse.json({
       temperature: 28,
+      feelsLike: 30,
       humidity: 75,
       windSpeed: 12,
+      windDirection: 180,
+      pressure: 1013,
+      visibility: 10,
+      cloudiness: 50,
       rainChance: 40,
       description: "Partly cloudy",
+      weatherMain: "Clouds",
+      weatherIcon: "03d",
       location: "Kerala",
+      country: "IN",
+      sunrise: null,
+      sunset: null,
+      timezone: 19800,
+      currentTime: Math.floor(Date.now() / 1000),
     });
   }
 }
