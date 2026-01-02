@@ -8,6 +8,8 @@
 A modern, AI-powered farming advisory platform specifically designed for Kerala farmers. This application provides real-time weather insights, AI-driven agricultural guidance, plant disease detection through image analysis, and multilingual support (English & Malayalam).
 
 ---
+For RAG code, follow this repo
+https://github.com/chandanb778/Farm-Easy
 
 ## 🌟 Features
 
